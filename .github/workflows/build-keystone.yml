@@ -1,27 +1,33 @@
-name: Build Keystone (Android ARM64 + Linux + Windows)
+name: Build Keystone (Android ARM64)
 
 on:
-  push:
-  workflow_dispatch:  # 允许手动点击运行
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: sudo apt update && sudo apt install -y cmake build-essential
+      # 安装依赖 + 下载 NDK（关键修复！）
+      - name: Install dependencies & NDK
+        run: |
+          sudo apt update
+          sudo apt install -y cmake build-essential unzip
+          wget https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
+          unzip -q android-ndk-r25c-linux.zip
+          echo "ANDROID_NDK=$PWD/android-ndk-r25c" >> $GITHUB_ENV
 
-      - name: Download Keystone source
+      # 下载 Keystone 源码
+      - name: Download Keystone
         run: |
           wget https://github.com/keystone-engine/keystone/archive/refs/heads/master.zip
           unzip master.zip
           mv keystone-master keystone
 
       # 构建 Android ARM64
-      - name: Build for Android arm64-v8a
+      - name: Build Android arm64-v8a
         run: |
           cd keystone
           mkdir build-android
@@ -37,23 +43,9 @@ jobs:
           mkdir -p ../../output/android/arm64-v8a
           cp libkeystone.so ../../output/android/arm64-v8a/
 
-      # 构建 Linux x64
-      - name: Build for Linux x64
-        run: |
-          cd keystone
-          mkdir build-linux
-          cd build-linux
-          cmake .. \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DBUILD_SHARED_LIBS=ON \
-            -DLLVM_TARGETS_TO_BUILD="AArch64;X86"
-          make -j$(nproc)
-          mkdir -p ../../output/linux/x64
-          cp libkeystone.so libkeystone.a ../../output/linux/x64/
-
-      - name: Upload artifacts
+      # 上传产物
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: keystone-output
+          name: libkeystone-arm64
           path: output/
-
