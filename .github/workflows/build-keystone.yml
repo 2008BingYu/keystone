@@ -1,4 +1,4 @@
-name: Build Keystone ARM64
+name: Build Keystone ARMv7 & ARM64
 
 on:
   workflow_dispatch:
@@ -12,9 +12,24 @@ jobs:
       - name: Install dependencies
         run: sudo apt update && sudo apt install -y cmake build-essential
 
+      - name: Build Android armeabi-v7a
+        run: |
+          mkdir build-v7a && cd build-v7a
+          
+          cmake .. \
+            -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=armeabi-v7a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLVM_TARGETS_TO_BUILD=ARM \
+            -DANDROID_ARM_MODE=arm
+          
+          make -j$(nproc)
+
       - name: Build Android arm64-v8a
         run: |
-          mkdir build && cd build
+          mkdir build-v8a && cd build-v8a
           
           cmake .. \
             -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake \
@@ -23,11 +38,20 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=OFF \
             -DLLVM_TARGETS_TO_BUILD=AArch64
-            
+          
           make -j$(nproc)
 
-      # ✅ 正确路径：Keystone 静态库在这里
+      - name: Prepare release package
+        run: |
+          mkdir -p keystone-release/lib/armeabi-v7a
+          mkdir -p keystone-release/lib/arm64-v8a
+          mkdir -p keystone-release/include
+          
+          cp build-v7a/llvm/lib/libkeystone.a keystone-release/lib/armeabi-v7a/
+          cp build-v8a/llvm/lib/libkeystone.a keystone-release/lib/arm64-v8a/
+          cp -r include/keystone keystone-release/include/
+
       - uses: actions/upload-artifact@v4
         with:
-          name: libkeystone-arm64-a
-          path: build/llvm/lib/libkeystone.a
+          name: libkeystone-android-all
+          path: keystone-release/
