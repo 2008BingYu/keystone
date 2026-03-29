@@ -1,4 +1,4 @@
-name: Build Keystone ARMv7 & ARM64
+name: Build
 
 on:
   workflow_dispatch:
