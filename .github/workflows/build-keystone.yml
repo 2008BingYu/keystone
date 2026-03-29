@@ -1,4 +1,4 @@
-name: Build Keystone (Android ARM64)
+name: Build Keystone ARM64
 
 on:
   workflow_dispatch:
@@ -7,45 +7,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 安装依赖 + 下载 NDK（关键修复！）
-      - name: Install dependencies & NDK
-        run: |
-          sudo apt update
-          sudo apt install -y cmake build-essential unzip
-          wget https://dl.google.com/android/repository/android-ndk-r25c-linux.zip
-          unzip -q android-ndk-r25c-linux.zip
-          echo "ANDROID_NDK=$PWD/android-ndk-r25c" >> $GITHUB_ENV
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y cmake build-essential
 
-      # 下载 Keystone 源码
-      - name: Download Keystone
-        run: |
-          wget https://github.com/keystone-engine/keystone/archive/refs/heads/master.zip
-          unzip master.zip
-          mv keystone-master keystone
-
-      # 构建 Android ARM64
       - name: Build Android arm64-v8a
         run: |
-          cd keystone
-          mkdir build-android
-          cd build-android
+          mkdir build && cd build
+          
           cmake .. \
-            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+            -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-24 \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SHARED_LIBS=ON \
             -DLLVM_TARGETS_TO_BUILD=AArch64
+            
           make -j$(nproc)
-          mkdir -p ../../output/android/arm64-v8a
-          cp libkeystone.so ../../output/android/arm64-v8a/
 
-      # 上传产物
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: libkeystone-arm64
-          path: output/
+          path: build/libkeystone.so
