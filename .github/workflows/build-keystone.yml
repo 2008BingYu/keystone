@@ -1,0 +1,59 @@
+name: Build Keystone (Android ARM64 + Linux + Windows)
+
+on:
+  push:
+  workflow_dispatch:  # 允许手动点击运行
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y cmake build-essential
+
+      - name: Download Keystone source
+        run: |
+          wget https://github.com/keystone-engine/keystone/archive/refs/heads/master.zip
+          unzip master.zip
+          mv keystone-master keystone
+
+      # 构建 Android ARM64
+      - name: Build for Android arm64-v8a
+        run: |
+          cd keystone
+          mkdir build-android
+          cd build-android
+          cmake .. \
+            -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON \
+            -DLLVM_TARGETS_TO_BUILD=AArch64
+          make -j$(nproc)
+          mkdir -p ../../output/android/arm64-v8a
+          cp libkeystone.so ../../output/android/arm64-v8a/
+
+      # 构建 Linux x64
+      - name: Build for Linux x64
+        run: |
+          cd keystone
+          mkdir build-linux
+          cd build-linux
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SHARED_LIBS=ON \
+            -DLLVM_TARGETS_TO_BUILD="AArch64;X86"
+          make -j$(nproc)
+          mkdir -p ../../output/linux/x64
+          cp libkeystone.so libkeystone.a ../../output/linux/x64/
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: keystone-output
+          path: output/
+
